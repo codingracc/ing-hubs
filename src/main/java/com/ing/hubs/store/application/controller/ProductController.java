@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 import static org.springframework.http.HttpStatus.CREATED;
 
 @RestController
@@ -24,6 +26,7 @@ public class ProductController {
 
     private final ProductService productService;
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<ProductResponse> createProduct(@Valid @RequestBody CreateProductRequest request) {
         Product entityToCreate = request.toEntity();
@@ -31,6 +34,7 @@ public class ProductController {
         return ResponseEntity.status(CREATED).body(ProductResponse.fromEntity(entityCreated));
     }
 
+    @PreAuthorize("hasAnyRole('USER','ADMIN')")
     @GetMapping
     public ResponseEntity<List<ProductResponse>> getAllProducts() {
         List<ProductResponse> products = productService.getAllProducts()
@@ -40,36 +44,42 @@ public class ProductController {
         return ResponseEntity.ok(products);
     }
 
+    @PreAuthorize("hasAnyRole('USER','ADMIN')")
     @GetMapping("/{id}")
     public ResponseEntity<ProductResponse> getProductById(@PathVariable @NotNull Long id) {
         Product product = productService.getProductById(id);
         return ResponseEntity.ok(ProductResponse.fromEntity(product));
     }
 
+    @PreAuthorize("hasAnyRole('USER','ADMIN')")
     @GetMapping("/by-name/{name}")
     public ResponseEntity<ProductResponse> getProductByName(@PathVariable @NotBlank String name) {
         Product product = productService.getProductByName(name);
         return ResponseEntity.ok(ProductResponse.fromEntity(product));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping
     public ResponseEntity<Void> deleteAllProducts() {
         productService.deleteAllProducts();
         return ResponseEntity.noContent().build();
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteProductById(@PathVariable @NotNull Long id) {
         productService.deleteProductById(id);
         return ResponseEntity.noContent().build();
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/by-name/{name}")
     public ResponseEntity<Void> deleteProductByName(@PathVariable @NotBlank String name) {
         productService.deleteProductByName(name);
         return ResponseEntity.noContent().build();
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/{id}/price")
     public ResponseEntity<ProductResponse> updateProductPrice(
             @PathVariable @NotNull Long id,
@@ -79,6 +89,7 @@ public class ProductController {
         return ResponseEntity.ok(ProductResponse.fromEntity(updated));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/{id}/quantity")
     public ResponseEntity<ProductResponse> updateProductQuantity(
             @PathVariable @NotNull Long id,

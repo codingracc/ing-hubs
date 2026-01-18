@@ -11,6 +11,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
+import org.springframework.security.core.AuthenticationException;
 
 import java.util.stream.Collectors;
 
@@ -51,6 +54,17 @@ public class ExceptionHandlingController {
             message = "Validation failed";
         }
         return respond(BAD_REQUEST, message, ex);
+    }
+
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
+        return respond(FORBIDDEN, "Forbidden", ex);
+    }
+
+    @ExceptionHandler({AuthenticationException.class, InsufficientAuthenticationException.class})
+    public ResponseEntity<ErrorResponse> handleAuthentication(Exception ex) {
+        return respond(UNAUTHORIZED, "Unauthorized", ex);
     }
 
     @ExceptionHandler(RuntimeException.class)

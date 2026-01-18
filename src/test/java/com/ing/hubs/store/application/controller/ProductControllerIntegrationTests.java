@@ -8,36 +8,70 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ActiveProfiles("test")
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestTestClient
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ProductControllerIntegrationTests {
 
     @Autowired
-    private RestTestClient restTestClient;
-
+    private RestTestClient notAuthenticatedClient;
     @Autowired
     private ProductRepository productRepository;
+
+    private RestTestClient adminClient;
+    private RestTestClient userClient;
 
     @BeforeEach
     void setUp() {
         productRepository.deleteAll();
+        adminClient = withBasicAuth(notAuthenticatedClient, "admin", "admin");
+        userClient = withBasicAuth(notAuthenticatedClient, "user", "user");
     }
 
+    private static RestTestClient withBasicAuth(RestTestClient base, String username, String password) {
+        String token = Base64.getEncoder().encodeToString((username + ":" + password).getBytes(StandardCharsets.UTF_8));
+        return base.mutate()
+                .defaultHeaders(headers -> headers.set(HttpHeaders.AUTHORIZATION, "Basic " + token))
+                .build();
+    }
+
+    @Test
+    void givenNoAuth_whenGetAll_thenReturnUnauthorized() {
+        // given / when / then
+        notAuthenticatedClient.get()
+                .uri("/products")
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    @Test
+    void givenUserAuth_whenCreate_thenReturnForbidden() {
+        // given / when / then
+        userClient.post()
+                .uri("/products")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(ProductRequestMother.aCreateProductRequest("Milk"))
+                .exchange()
+                .expectStatus().isForbidden();
+    }
 
     @Test
     void givenValidCreateRequest_whenCreate_thenReturnCreated() {
         // given / when / then
-        restTestClient.post()
+        adminClient.post()
                 .uri("/products")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(ProductRequestMother.aCreateProductRequest("Milk"))
@@ -54,7 +88,7 @@ class ProductControllerIntegrationTests {
     void givenExistingProduct_whenGetById_thenReturnOk() {
         // given
         ProductResponse created =
-                restTestClient.post()
+                adminClient.post()
                         .uri("/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(ProductRequestMother.aCreateProductRequest("Milk"))
@@ -68,7 +102,7 @@ class ProductControllerIntegrationTests {
         Long id = created.id();
 
         // when / then
-        restTestClient.get()
+        userClient.get()
                 .uri("/products/{id}", id)
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
@@ -80,7 +114,7 @@ class ProductControllerIntegrationTests {
     @Test
     void givenMissingProduct_whenGetById_thenReturnNotFound() {
         // given / when / then
-        restTestClient.get()
+        userClient.get()
                 .uri("/products/{id}", 9999)
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
@@ -91,7 +125,7 @@ class ProductControllerIntegrationTests {
     void givenExistingProduct_whenGetByName_thenReturnOk() {
         // given
         ProductResponse created =
-                restTestClient.post()
+                adminClient.post()
                         .uri("/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(ProductRequestMother.aCreateProductRequest("Bread"))
@@ -104,7 +138,7 @@ class ProductControllerIntegrationTests {
         assertThat(created).isNotNull();
 
         // when / then
-        restTestClient.get()
+        userClient.get()
                 .uri("/products/by-name/{name}", "Bread")
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
@@ -116,7 +150,7 @@ class ProductControllerIntegrationTests {
     @Test
     void givenMissingProduct_whenGetByName_thenReturnNotFound() {
         // given / when / then
-        restTestClient.get()
+        userClient.get()
                 .uri("/products/by-name/{name}", "Missing")
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
@@ -127,7 +161,7 @@ class ProductControllerIntegrationTests {
     void givenTwoProducts_whenGetAll_thenReturnList() {
         // given
         ProductResponse p1 =
-                restTestClient.post()
+                adminClient.post()
                         .uri("/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(ProductRequestMother.aCreateProductRequest("Milk"))
@@ -138,7 +172,7 @@ class ProductControllerIntegrationTests {
                         .getResponseBody();
 
         ProductResponse p2 =
-                restTestClient.post()
+                adminClient.post()
                         .uri("/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(ProductRequestMother.aCreateProductRequest("Bread"))
@@ -153,7 +187,7 @@ class ProductControllerIntegrationTests {
 
         // when
         ProductResponse[] all =
-                restTestClient.get()
+                userClient.get()
                         .uri("/products")
                         .accept(MediaType.APPLICATION_JSON)
                         .exchange()
@@ -172,7 +206,7 @@ class ProductControllerIntegrationTests {
     void givenExistingProduct_whenUpdatePrice_thenReturnUpdated() {
         // given
         ProductResponse created =
-                restTestClient.post()
+                adminClient.post()
                         .uri("/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(ProductRequestMother.aCreateProductRequest("Milk"))
@@ -186,7 +220,7 @@ class ProductControllerIntegrationTests {
         Long id = created.id();
 
         // when / then
-        restTestClient.patch()
+        adminClient.patch()
                 .uri("/products/{id}/price", id)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(ProductRequestMother.anUpdatePriceRequest(12.5))
@@ -203,7 +237,7 @@ class ProductControllerIntegrationTests {
     void givenExistingProduct_whenUpdateQuantity_thenReturnUpdated() {
         // given
         ProductResponse created =
-                restTestClient.post()
+                adminClient.post()
                         .uri("/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(ProductRequestMother.aCreateProductRequest("Milk"))
@@ -217,7 +251,7 @@ class ProductControllerIntegrationTests {
         Long id = created.id();
 
         // when / then
-        restTestClient.patch()
+        adminClient.patch()
                 .uri("/products/{id}/quantity", id)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(ProductRequestMother.anUpdateQuantityRequest(25))
@@ -234,7 +268,7 @@ class ProductControllerIntegrationTests {
     void givenExistingProduct_whenDeleteById_thenReturnNoContent() {
         // given
         ProductResponse created =
-                restTestClient.post()
+                adminClient.post()
                         .uri("/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(ProductRequestMother.aCreateProductRequest("Milk"))
@@ -248,7 +282,7 @@ class ProductControllerIntegrationTests {
         Long id = created.id();
 
         // when / then
-        restTestClient.delete()
+        adminClient.delete()
                 .uri("/products/{id}", id)
                 .exchange()
                 .expectStatus().isNoContent();
@@ -259,7 +293,7 @@ class ProductControllerIntegrationTests {
     @Test
     void givenMissingProduct_whenDeleteById_thenReturnNoContent() {
         // given / when / then
-        restTestClient.delete()
+        adminClient.delete()
                 .uri("/products/{id}", 9999)
                 .exchange()
                 .expectStatus().isNoContent();
@@ -269,7 +303,7 @@ class ProductControllerIntegrationTests {
     void givenExistingProduct_whenDeleteByName_thenReturnNoContent() {
         // given
         ProductResponse created =
-                restTestClient.post()
+                adminClient.post()
                         .uri("/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(ProductRequestMother.aCreateProductRequest("Bread"))
@@ -282,7 +316,7 @@ class ProductControllerIntegrationTests {
         assertThat(created).isNotNull();
 
         // when / then
-        restTestClient.delete()
+        adminClient.delete()
                 .uri("/products/by-name/{name}", "Bread")
                 .exchange()
                 .expectStatus().isNoContent();
@@ -293,7 +327,7 @@ class ProductControllerIntegrationTests {
     @Test
     void givenMissingProduct_whenDeleteByName_thenReturnNoContent() {
         // given / when / then
-        restTestClient.delete()
+        adminClient.delete()
                 .uri("/products/by-name/{name}", "Missing")
                 .exchange()
                 .expectStatus().isNoContent();
@@ -302,14 +336,14 @@ class ProductControllerIntegrationTests {
     @Test
     void givenTwoProducts_whenDeleteAll_thenReturnNoContent() {
         // given
-        restTestClient.post()
+        adminClient.post()
                 .uri("/products")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(ProductRequestMother.aCreateProductRequest("Milk"))
                 .exchange()
                 .expectStatus().isCreated();
 
-        restTestClient.post()
+        adminClient.post()
                 .uri("/products")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(ProductRequestMother.aCreateProductRequest("Bread"))
@@ -319,7 +353,7 @@ class ProductControllerIntegrationTests {
         assertThat(productRepository.count()).isEqualTo(2);
 
         // when / then
-        restTestClient.delete()
+        adminClient.delete()
                 .uri("/products")
                 .exchange()
                 .expectStatus().isNoContent();
