@@ -2,6 +2,8 @@ package com.ing.hubs.store.application.controller;
 
 import com.ing.hubs.store.application.dto.CreateProductRequest;
 import com.ing.hubs.store.application.dto.ProductResponse;
+import com.ing.hubs.store.application.dto.UpdateProductPriceRequest;
+import com.ing.hubs.store.application.dto.UpdateProductQuantityRequest;
 import com.ing.hubs.store.domain.entity.Product;
 import com.ing.hubs.store.domain.service.ProductService;
 import jakarta.validation.Valid;
@@ -66,5 +68,23 @@ public class ProductController {
     public ResponseEntity<Void> deleteProductByName(@PathVariable @NotBlank String name) {
         productService.deleteProductByName(name);
         return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{id}/price")
+    public ResponseEntity<ProductResponse> updateProductPrice(
+            @PathVariable @NotNull Long id,
+            @Valid @RequestBody UpdateProductPriceRequest request
+    ) {
+        Product updated = productService.updateProductPrice(id, request.price());
+        return ResponseEntity.ok(ProductResponse.fromEntity(updated));
+    }
+
+    @PatchMapping("/{id}/quantity")
+    public ResponseEntity<ProductResponse> updateProductQuantity(
+            @PathVariable @NotNull Long id,
+            @Valid @RequestBody UpdateProductQuantityRequest request
+    ) {
+        Product updated = productService.updateProductQuantity(id, request.quantity());
+        return ResponseEntity.ok(ProductResponse.fromEntity(updated));
     }
 }
