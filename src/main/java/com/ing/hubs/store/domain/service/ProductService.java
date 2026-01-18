@@ -10,6 +10,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.util.List;
@@ -17,6 +18,7 @@ import java.util.List;
 @Service
 @Validated
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class ProductService {
 
     private final ProductRepository repository;
@@ -35,22 +37,26 @@ public class ProductService {
                 .orElseThrow(() -> new NotFound("Product not found with name: " + name));
     }
 
+    @Transactional
     public void deleteAllProducts() {
         repository.deleteAll();
     }
 
+    @Transactional
     public void deleteProductById(final @NotNull Long id) {
         if (repository.existsById(id)) {
             repository.deleteById(id);
         }
     }
 
+    @Transactional
     public void deleteProductByName(final @NotBlank String name) {
         if (repository.existsByName(name)) {
             repository.deleteByName(name);
         }
     }
 
+    @Transactional
     public Product createProduct(final @NotNull @Valid Product product) {
         if (repository.existsByName(product.getName())) {
             throw new Conflict("Product already exists with name: " + product.getName());
@@ -58,6 +64,7 @@ public class ProductService {
         return repository.save(product);
     }
 
+    @Transactional
     public Product updateProductPrice(
             final @NotNull Long id,
             final @NotNull @Min(0) Double newPrice
@@ -66,6 +73,7 @@ public class ProductService {
         return repository.save(product.withPrice(newPrice));
     }
 
+    @Transactional
     public Product updateProductQuantity(
             final @NotNull Long id,
             final @NotNull @Min(0) Integer newQuantity
