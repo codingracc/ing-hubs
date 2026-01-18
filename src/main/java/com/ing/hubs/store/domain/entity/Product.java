@@ -9,6 +9,7 @@ import lombok.*;
 import static lombok.AccessLevel.PRIVATE;
 import static lombok.AccessLevel.PROTECTED;
 
+@With
 @Entity
 @Getter
 @Builder
