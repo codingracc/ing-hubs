@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
+import java.time.Instant;
+
 import static lombok.AccessLevel.PRIVATE;
 import static lombok.AccessLevel.PROTECTED;
 
@@ -37,4 +39,22 @@ public class Product {
     @Min(0)
     @Column(nullable = false)
     private Integer quantity;
+
+    @Column(nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @Column(nullable = false)
+    private Instant lastUpdatedAt;
+
+    @PrePersist
+    void onCreate() {
+        Instant now = Instant.now();
+        createdAt = now;
+        lastUpdatedAt = now;
+    }
+
+    @PreUpdate
+    void onUpdate() {
+        lastUpdatedAt = Instant.now();
+    }
 }
